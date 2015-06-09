@@ -8,12 +8,12 @@
 
 #include "callbacks.h"
 
-CefRefPtr<CefBrowser> browser;
-
 gboolean MessageLoopTimeout (gpointer data) {
 	CefDoMessageLoopWork();
 	return TRUE;
 }
+
+WindowFactory windowFactory;
 
 int main(int argc, char **argv) {
    gdk_init(&argc, &argv);
@@ -39,30 +39,11 @@ int main(int argc, char **argv) {
    attr.wclass = GDK_INPUT_OUTPUT;
    attr.width = 1000;
    attr.height = 700;
-   GdkWindow *win = gdk_window_new(NULL, &attr, 0);
-   
-	RenderHandler* renderHandler = new RenderHandler(win, browser_data);
-	
-	// create browser-window
-    CefRefPtr<BrowserClient> browserClient;
-    {
-        CefWindowInfo window_info;
-        CefBrowserSettings browserSettings;
-
-        // browserSettings.windowless_frame_rate = 60; // 30 is default
-
-        // in linux set a gtk widget, in windows a hwnd. If not available set nullptr - may cause some render errors, in context-menu and plugins.
-        //std::size_t windowHandle = 0;
-        window_info.SetAsWindowless(nullptr, false); // false means no transparency (site background colour)
-
-        browserClient = new BrowserClient(renderHandler);
-
-        browser = CefBrowserHost::CreateBrowserSync(window_info, browserClient.get(), "http://www.google.com/", browserSettings, nullptr);
-		browser->GetHost()->SetMouseCursorChangeDisabled(false);
-		browser->GetHost()->SendFocusEvent(true);
-    }
+   GdkWindow *win = windowFactory.createWindow(NULL, &attr, 0, "https://www.google.com.br/");
+   GdkWindow *win2 = windowFactory.createWindow(NULL, &attr, 0, "https://www.google.com.br/");
 	
    gdk_window_show(win);
+   gdk_window_show(win2);
    
   // g_thread_new(NULL, CefMessaLoop, NULL);
   
@@ -80,13 +61,11 @@ int main(int argc, char **argv) {
     g_source_attach(source,
                     context);  
    g_main_loop_run(mainloop);
-   gdk_window_destroy(win);
+   windowFactory.destroyAll();	// destroy all remain windows
     g_source_destroy(source);
     g_source_unref(source);
     g_main_loop_unref(mainloop);
-   
-   browser = nullptr;
-  browserClient = nullptr;
+
   CefShutdown();
 
    return 0;

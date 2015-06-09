@@ -18,14 +18,14 @@ RenderHandler::RenderHandler(GdkWindow* hWnd, RenderHandler::ScreenBuffer &rbuff
 bool RenderHandler::GetViewRect(CefRefPtr<CefBrowser> browser, CefRect &rect)
 {
 	rect = CefRect(0, 0, gdk_window_get_width(hWindow), gdk_window_get_height(hWindow));
-	return true;
+	return false;
 }
 
 bool RenderHandler::GetScreenInfo(CefRefPtr<CefBrowser> browser, CefScreenInfo& screen_info)
 {
 	screen_info.rect = CefRect(0, 0, gdk_window_get_width(hWindow), gdk_window_get_height(hWindow));
 	screen_info.available_rect = CefRect(0, 0, gdk_window_get_width(hWindow), gdk_window_get_height(hWindow));
-	return true;
+	return false;
 }
 
 void RenderHandler::OnPaint(CefRefPtr<CefBrowser> browser, PaintElementType type, const RectList &dirtyRects, const void *buffer, int width, int height)

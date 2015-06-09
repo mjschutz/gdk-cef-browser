@@ -6,6 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 #include "callbacks.h"
+#include <iostream>
 
 RenderHandler::ScreenBuffer browser_data;
 GMainLoop *mainloop;
@@ -109,21 +110,29 @@ void event_func(GdkEvent *ev, gpointer data)
 {
 	GdkWindow* hWindow = ((GdkEventAny*)ev)->window;
 	
+	if (gdk_window_is_destroyed(hWindow)) return;
+	
+	WindowContext* windowContext = windowFactory.getWindowContext(hWindow);
+	RenderHandler::ScreenBuffer* browser_data = &windowContext->browser_data;
+	CefBrowser* browser = windowContext->browser;
+		
    switch(ev->type) {
-	  case GDK_CONFIGURE:
+	  case GDK_CONFIGURE:	
 		browser->GetHost()->WasResized();
 	  break;
 	  case GDK_EXPOSE:
 	  {
+		if (browser_data->_data == NULL) return;
+		
 		browser->GetHost()->NotifyMoveOrResizeStarted();
 		
 		gdk_window_begin_paint_rect(hWindow, &((GdkEventExpose*)ev)->area);
 		
-		cairo_surface_t *paint_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, browser_data._width, browser_data._height);
+		cairo_surface_t *paint_surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, browser_data->_width, browser_data->_height);
 	
 		cairo_surface_flush(paint_surface);
 		unsigned char* data = cairo_image_surface_get_data(paint_surface);
-		std::memcpy(data, browser_data._data, browser_data._width*4*browser_data._height);
+		std::memcpy(data, browser_data->_data, browser_data->_width*4*browser_data->_height);
 		cairo_surface_mark_dirty(paint_surface);
 		
 		cairo_t* cr = gdk_cairo_create(hWindow);
@@ -136,7 +145,7 @@ void event_func(GdkEvent *ev, gpointer data)
 		int _h = gdk_window_get_height(hWindow);
 		
 		cairo_set_source_surface (cr, paint_surface, 0, 0);
-		cairo_rectangle (cr, 0, 0, browser_data._width > _w ? _w : browser_data._width, browser_data._height > _h ? _h : browser_data._height);
+		cairo_rectangle (cr, 0, 0, browser_data->_width > _w ? _w : browser_data->_width, browser_data->_height > _h ? _h : browser_data->_height);
 		cairo_fill(cr);
 		
 		cairo_destroy(cr);
@@ -224,12 +233,18 @@ void event_func(GdkEvent *ev, gpointer data)
 		mouseEvent.modifiers = GetCefMouseModifiers(gdk_window_get_display(sev->window), sev->state);
 		
 		int deltaX = sev->direction == GDK_SCROLL_LEFT ? 1 : -1, deltaY = sev->direction == GDK_SCROLL_UP ? 1 : -1;
-		browser->GetHost()->SendMouseWheelEvent(mouseEvent, deltaX*24, deltaY*24);
+		browser->GetHost()->SendMouseWheelEvent(mouseEvent, deltaX*120, deltaY*120);
 		break;
 	}
 		 
       case GDK_DELETE:
-         g_main_loop_quit(mainloop);
+		if (windowFactory.mainWindow() == hWindow)
+		{
+			g_main_loop_quit(mainloop);
+		}
+		
+		browser->GetHost()->CloseBrowser(false);
+		windowFactory.destroyWindow(hWindow);
          break;
 	  default:
 		 break;
