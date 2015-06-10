@@ -14,7 +14,9 @@
 #include <cairo/cairo.h>
 #include <gdk/gdk.h>
 
-class RenderHandler : public CefRenderHandler
+class WindowContext;
+
+class RenderHandler : public CefRenderHandler, public CefLifeSpanHandler
 {
 public:
 	struct ScreenBuffer
@@ -53,10 +55,9 @@ public:
 		}
 	};
 	
-    ScreenBuffer &render_buffer;
-	GdkWindow* hWindow;
+    WindowContext* windowContext;
 
-    RenderHandler(GdkWindow* hWnd, ScreenBuffer &rbuffer);
+    RenderHandler(WindowContext* windowContext);
 
     // CefRenderHandler interface
 public:
@@ -64,6 +65,18 @@ public:
 	bool GetScreenInfo(CefRefPtr<CefBrowser> browser, CefScreenInfo& screen_info);
     void OnPaint(CefRefPtr<CefBrowser> browser, PaintElementType type, const RectList &dirtyRects, const void *buffer, int width, int height);
 	void OnCursorChange( CefRefPtr< CefBrowser > browser, CefCursorHandle cursor, CefRenderHandler::CursorType type, const CefCursorInfo& custom_cursor_info);
+	bool OnBeforePopup(CefRefPtr<CefBrowser> browser,
+                             CefRefPtr<CefFrame> frame,
+                             const CefString& target_url,
+                             const CefString& target_frame_name,
+                             WindowOpenDisposition target_disposition,
+                             bool user_gesture,
+                             const CefPopupFeatures& popupFeatures,
+                             CefWindowInfo& windowInfo,
+                             CefRefPtr<CefClient>& client,
+                             CefBrowserSettings& settings,
+                             bool* no_javascript_access);
+	virtual void OnAfterCreated( CefRefPtr< CefBrowser > browser );
 
     // CefBase interface
 public:
@@ -82,8 +95,12 @@ public:
     virtual CefRefPtr<CefRenderHandler> GetRenderHandler() {
         return m_renderHandler;
     }
+	
+	virtual CefRefPtr<CefLifeSpanHandler> GetLifeSpanHandler() {
+		return m_renderHandler;
+	}
 
-    CefRefPtr<CefRenderHandler> m_renderHandler;
+    CefRefPtr<RenderHandler> m_renderHandler;
 
     IMPLEMENT_REFCOUNTING(BrowserClient);
 };

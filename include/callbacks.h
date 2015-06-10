@@ -21,13 +21,16 @@ struct WindowContext
 {
 	GdkWindow* window;
 	CefRefPtr<CefBrowser> browser;
-	CefRefPtr<BrowserClient> browserClient;
+	CefRefPtr<CefClient> browserClient;
 	RenderHandler::ScreenBuffer browser_data;
+	bool showWindow;
+	GdkWindowAttr attributes;
 	
 	WindowContext():
 		window(nullptr),
 		browser(nullptr),
-		browserClient(nullptr)
+		browserClient(nullptr),
+		showWindow(false)
 	{
 	}
 	
@@ -78,16 +81,27 @@ public:
 		return *it;
 	}
 	
+	void showWindows()
+	{
+		for (std::vector<WindowContext*>::iterator wContextIt = windows.begin(); wContextIt != windows.end(); wContextIt++)
+			if ((*wContextIt)->showWindow)
+			{
+				(*wContextIt)->showWindow = false;
+				(*wContextIt)->window = gdk_window_new(NULL, &(*wContextIt)->attributes, 0);
+				gdk_window_show((*wContextIt)->window);
+			}
+	}
+	
 	GdkWindow* createWindow(GdkWindow *parent,
                 GdkWindowAttr *attributes,
                 gint attributes_mask, const char* web_addr)
 	{
+		
 		WindowContext* windowContext = new WindowContext;
 		
 		windowContext->window = gdk_window_new(parent, attributes, attributes_mask);
 		
-		RenderHandler* renderHandler = new RenderHandler(windowContext->window, windowContext->browser_data);
-	
+		RenderHandler* renderHandler = new RenderHandler(windowContext);
 		{
 			CefWindowInfo window_info;
 			CefBrowserSettings browserSettings;
@@ -105,6 +119,11 @@ public:
 		return windowContext->window;
 	}
 	
+	void addWindowContext(WindowContext* windowContext)
+	{
+		windows.push_back(windowContext);
+	}
+	
 	void destroyAll()
 	{	
 		for (std::vector<WindowContext*>::iterator wContextIt = windows.begin(); wContextIt != windows.end(); wContextIt++)
@@ -115,7 +134,6 @@ public:
 	
 	void destroyWindow(GdkWindow* window)
 	{
-		// ToDo: check if window is on windows vector
 		WindowContext* wContext = getWindowContext(window);
 		if (wContext == NULL)
 			return;

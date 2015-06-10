@@ -8,34 +8,48 @@
 #include <cefrender.h>
 #include <windows.h>
 #include "callbacks.h"
-
-RenderHandler::RenderHandler(GdkWindow* hWnd, RenderHandler::ScreenBuffer &rbuffer)
-        : render_buffer(rbuffer),
-		hWindow(hWnd)
+#include <iostream>
+RenderHandler::RenderHandler(WindowContext* windowContext)
+        : windowContext(windowContext)
 {
 }
 
 bool RenderHandler::GetViewRect(CefRefPtr<CefBrowser> browser, CefRect &rect)
 {
-	rect = CefRect(0, 0, gdk_window_get_width(hWindow), gdk_window_get_height(hWindow));
+	if (windowContext->window == nullptr) {
+		rect = CefRect(0, 0, windowContext->attributes.width, windowContext->attributes.height);
+		return true;
+	}
+	
+	rect = CefRect(0, 0, gdk_window_get_width(windowContext->window), gdk_window_get_height(windowContext->window));
 	return true;
 }
 
 bool RenderHandler::GetScreenInfo(CefRefPtr<CefBrowser> browser, CefScreenInfo& screen_info)
 {
-	screen_info.rect = CefRect(0, 0, gdk_window_get_width(hWindow), gdk_window_get_height(hWindow));
-	screen_info.available_rect = CefRect(0, 0, gdk_window_get_width(hWindow), gdk_window_get_height(hWindow));
+	if (windowContext->window == nullptr) {
+		screen_info.rect = CefRect(0, 0, windowContext->attributes.width, windowContext->attributes.height);
+		screen_info.available_rect = CefRect(0, 0, windowContext->attributes.width, windowContext->attributes.height);
+		return true;
+	}
+	
+	screen_info.rect = CefRect(0, 0, gdk_window_get_width(windowContext->window), gdk_window_get_height(windowContext->window));
+	screen_info.available_rect = CefRect(0, 0, gdk_window_get_width(windowContext->window), gdk_window_get_height(windowContext->window));
 	return true;
 }
 
 void RenderHandler::OnPaint(CefRefPtr<CefBrowser> browser, PaintElementType type, const RectList &dirtyRects, const void *buffer, int width, int height)
 {
-	render_buffer.copyData(buffer, width, height);
-	gdk_window_invalidate_rect(hWindow, NULL, TRUE);
+	if (windowContext->window == nullptr) return;
+	
+	windowContext->browser_data.copyData(buffer, width, height);
+	gdk_window_invalidate_rect(windowContext->window, NULL, TRUE);
 }
 
 void RenderHandler::OnCursorChange(CefRefPtr<CefBrowser> browser, CefCursorHandle cursor, CefRenderHandler::CursorType type, const CefCursorInfo& custom_cursor_info)
 {
+	if (windowContext->window == nullptr) return;
+	
 	GdkCursorType cursor_type = GDK_LEFT_PTR;
 	
 	switch (type)
@@ -146,5 +160,48 @@ void RenderHandler::OnCursorChange(CefRefPtr<CefBrowser> browser, CefCursorHandl
 		default:
 			cursor_type = GDK_LEFT_PTR;
 	}
-	gdk_window_set_cursor(hWindow, gdk_cursor_new_for_display(gdk_window_get_display(hWindow), cursor_type));
+	gdk_window_set_cursor(windowContext->window, gdk_cursor_new_for_display(gdk_window_get_display(windowContext->window), cursor_type));
+}
+
+void RenderHandler::OnAfterCreated(CefRefPtr<CefBrowser> browser)
+{
+	windowContext->browser = browser;
+	windowContext->browser->GetHost()->WasResized();
+	windowContext->browser->GetHost()->SetMouseCursorChangeDisabled(false);
+	windowContext->browser->GetHost()->SendFocusEvent(true);
+}
+
+bool RenderHandler::OnBeforePopup(CefRefPtr<CefBrowser> browser,
+                             CefRefPtr<CefFrame> frame,
+                             const CefString& target_url,
+                             const CefString& target_frame_name,
+                             WindowOpenDisposition target_disposition,
+                             bool user_gesture,
+                             const CefPopupFeatures& popupFeatures,
+                             CefWindowInfo& windowInfo,
+                             CefRefPtr<CefClient>& client,
+                             CefBrowserSettings& settings,
+                             bool* no_javascript_access)
+{
+	if (windowContext->window == nullptr) return true;
+	
+	WindowContext* wContext = new WindowContext;
+	windowFactory.addWindowContext(wContext);
+	
+	*no_javascript_access = false;
+
+	wContext->attributes.event_mask = GDK_ALL_EVENTS_MASK;
+	wContext->attributes.window_type = GDK_WINDOW_TOPLEVEL;
+	wContext->attributes.wclass = GDK_INPUT_OUTPUT;
+	wContext->attributes.x = windowInfo.x < 0 ? 0 : windowInfo.x;
+	wContext->attributes.y = windowInfo.y < 0 ? 0 : windowInfo.y;
+	wContext->attributes.width = windowInfo.width < 0 ? 500 : windowInfo.width;
+	wContext->attributes.height = windowInfo.height < 0 ? 500 : windowInfo.height;
+	
+	windowInfo.SetAsWindowless(nullptr, false); // false means no transparency (site background colour)
+	wContext->browserClient = client = new BrowserClient(new RenderHandler(wContext));
+	
+	wContext->showWindow = true;
+
+	return false;
 }

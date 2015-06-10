@@ -10,6 +10,7 @@
 
 gboolean MessageLoopTimeout (gpointer data) {
 	CefDoMessageLoopWork();
+	windowFactory.showWindows();
 	return TRUE;
 }
 
@@ -40,13 +41,9 @@ int main(int argc, char **argv) {
    attr.width = 1000;
    attr.height = 700;
    GdkWindow *win = windowFactory.createWindow(NULL, &attr, 0, "https://www.google.com.br/");
-   GdkWindow *win2 = windowFactory.createWindow(NULL, &attr, 0, "https://www.google.com.br/");
 	
    gdk_window_show(win);
-   gdk_window_show(win2);
-   
-  // g_thread_new(NULL, CefMessaLoop, NULL);
-  
+    
   GMainContext *context = g_main_context_default();
   GSource *source =  g_timeout_source_new(10);
 

@@ -6,7 +6,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 #include "callbacks.h"
-#include <iostream>
 
 RenderHandler::ScreenBuffer browser_data;
 GMainLoop *mainloop;
@@ -113,8 +112,11 @@ void event_func(GdkEvent *ev, gpointer data)
 	if (gdk_window_is_destroyed(hWindow)) return;
 	
 	WindowContext* windowContext = windowFactory.getWindowContext(hWindow);
+	if (windowContext == NULL) {
+		return;
+	}
 	RenderHandler::ScreenBuffer* browser_data = &windowContext->browser_data;
-	CefBrowser* browser = windowContext->browser;
+	CefRefPtr<CefBrowser> browser = windowContext->browser;
 		
    switch(ev->type) {
 	  case GDK_CONFIGURE:	
@@ -122,7 +124,7 @@ void event_func(GdkEvent *ev, gpointer data)
 	  break;
 	  case GDK_EXPOSE:
 	  {
-		if (browser_data->_data == NULL) return;
+		if (browser_data->_data == NULL) { return; }
 		
 		browser->GetHost()->NotifyMoveOrResizeStarted();
 		
@@ -243,7 +245,7 @@ void event_func(GdkEvent *ev, gpointer data)
 			g_main_loop_quit(mainloop);
 		}
 		
-		browser->GetHost()->CloseBrowser(false);
+		browser->GetHost()->CloseBrowser(true);
 		windowFactory.destroyWindow(hWindow);
          break;
 	  default:
